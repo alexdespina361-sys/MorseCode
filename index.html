@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Morse Code Trainer</title>
+  <meta
+    name="description"
+    content="Static Morse code trainer with listening mode, transcription mode, playback history, and seeded practice sessions."
+  >
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  >
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Static web app / GitHub Pages ready</p>
+        <h1>Morse Code Trainer</h1>
+        <p class="hero-text">
+          Practice listening, transcribe what you hear, and keep a local record of what was actually played.
+        </p>
+      </div>
+
+      <div class="hero-tools">
+        <label class="theme-picker" for="themeSelect">
+          Theme
+          <select id="themeSelect" name="themeSelect">
+            <option value="auto">Auto</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+
+        <div class="hero-note">
+          Audio uses the Web Audio API.
+          <span>History stays in this browser only.</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel settings-panel">
+        <div class="panel-header">
+          <h2>Settings</h2>
+          <p>Playback, lesson selection, validation, and reproducible random sessions.</p>
+        </div>
+
+        <form id="settingsForm" novalidate>
+          <section class="fieldset-block">
+            <div class="fieldset-title">
+              <h3>Playback Settings</h3>
+            </div>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>Speed (WPM)</span>
+                <input id="speedInput" name="speed" type="number" min="5" max="60" step="1" value="18" required>
+              </label>
+
+              <label class="field">
+                <span>Frequency (Hz)</span>
+                <input id="frequencyInput" name="frequency" type="number" min="300" max="1200" step="10" value="700" required>
+              </label>
+
+              <label class="field">
+                <span>Volume</span>
+                <input id="volumeInput" name="volume" type="number" min="0" max="1" step="0.05" value="0.5" required>
+              </label>
+
+              <label class="field">
+                <span>Character Spacing (dots)</span>
+                <input id="characterSpacingInput" name="characterSpacing" type="number" min="1" max="30" step="1" value="15" required>
+              </label>
+
+              <label class="field">
+                <span>Word Spacing (dots)</span>
+                <input id="wordSpacingInput" name="wordSpacing" type="number" min="1" max="30" step="1" value="15" required>
+              </label>
+
+              <label class="field">
+                <span>Group Size</span>
+                <input id="groupSizeInput" name="groupSize" type="number" min="1" max="10" step="1" value="4" required>
+              </label>
+
+              <label class="field">
+                <span>Number of Characters</span>
+                <input id="characterCountInput" name="characterCount" type="number" min="1" max="500" step="1" value="120" required>
+              </label>
+
+              <label class="field">
+                <span>Random Seed</span>
+                <input id="seedInput" name="seed" type="text" maxlength="64" placeholder="Optional seed for repeatable runs">
+              </label>
+            </div>
+          </section>
+
+          <section class="fieldset-block">
+            <div class="fieldset-title">
+              <h3>Lesson Settings</h3>
+            </div>
+
+            <div class="field-grid">
+              <label class="field">
+                <span>Lesson</span>
+                <select id="lessonSelect" name="lesson">
+                  <option value="basic">De baza</option>
+                  <option value="koch-core">Koch Core</option>
+                  <option value="numbers">Numbers</option>
+                  <option value="alphabet">Alphabet</option>
+                  <option value="alnum">Alpha + Numbers</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+
+              <label class="field field-wide">
+                <span>Custom Characters</span>
+                <input id="customCharactersInput" name="customCharacters" type="text" value="ABCDE" spellcheck="false" autocomplete="off">
+                <small>Used when Lesson is set to Custom. Unsupported symbols are ignored.</small>
+              </label>
+
+              <div class="field field-wide readout-field">
+                <span>Using</span>
+                <p id="usingCharacters" class="using-characters" aria-live="polite"></p>
+              </div>
+
+              <label class="field field-wide">
+                <span>Pre-start Text</span>
+                <input id="preStartTextInput" name="preStartText" type="text" value="VVVV" spellcheck="false" autocomplete="off">
+                <small>Played before the main session. It is excluded from scoring and history.</small>
+              </label>
+            </div>
+          </section>
+
+          <section class="fieldset-block">
+            <div class="fieldset-title">
+              <h3>Other Settings</h3>
+            </div>
+
+            <div class="toggle-list">
+              <label class="toggle">
+                <input id="showCurrentToggle" name="showCurrent" type="checkbox" checked>
+                <span>Show current characters</span>
+              </label>
+
+              <label class="toggle">
+                <input id="transcriptionToggle" name="transcriptionMode" type="checkbox">
+                <span>Transcription mode</span>
+              </label>
+            </div>
+
+            <p class="validation-note" id="validationNote" aria-live="polite"></p>
+          </section>
+        </form>
+      </aside>
+
+      <section class="stack">
+        <section class="panel control-panel">
+          <div class="panel-header">
+            <h2>Session</h2>
+            <p id="sessionStatusText">Ready to start.</p>
+          </div>
+
+          <div class="session-toolbar">
+            <button id="startButton" class="button button-primary" type="button">Start</button>
+            <button id="pauseButton" class="button" type="button" disabled>Pause</button>
+            <button id="stopButton" class="button" type="button" disabled>Stop</button>
+          </div>
+
+          <div class="session-stats">
+            <article class="stat-card">
+              <span class="stat-label">Seed Used</span>
+              <strong id="seedUsedText">-</strong>
+            </article>
+
+            <article class="stat-card">
+              <span class="stat-label">Played</span>
+              <strong id="playedCountText">0 / 0</strong>
+            </article>
+
+            <article class="stat-card">
+              <span class="stat-label">Mode</span>
+              <strong id="modeText">Listening</strong>
+            </article>
+          </div>
+
+          <div id="currentCharacterPanel" class="current-character-panel">
+            <div class="current-character-header">
+              <h3>Current characters</h3>
+              <span>Shows completed characters plus the one currently sounding.</span>
+            </div>
+            <div id="currentCharacterBox" class="current-character-box" aria-live="polite">-</div>
+          </div>
+
+          <div id="sessionOutputPanel" class="session-output-panel">
+            <div class="current-character-header">
+              <h3>Played this session</h3>
+              <span>Rendered after playback ends or stops.</span>
+            </div>
+            <pre id="sessionOutputText" class="session-output-text">No playback yet.</pre>
+          </div>
+        </section>
+
+        <section id="transcriptionPanel" class="panel transcription-panel is-hidden">
+          <div class="panel-header">
+            <h2>Transcription</h2>
+            <p>Type during playback or use the on-screen keyboard.</p>
+          </div>
+
+          <div class="transcription-field">
+            <div class="transcription-meta">
+              <span>Transcription</span>
+              <small>Use Right Arrow to skip a slot and Left Arrow to go back.</small>
+            </div>
+            <div
+              id="transcriptionGrid"
+              class="transcription-grid"
+              tabindex="0"
+              role="grid"
+              aria-label="Transcription slots"
+            ></div>
+          </div>
+
+          <div id="keyboardPanel" class="keyboard-panel" aria-label="Allowed characters keyboard"></div>
+        </section>
+
+        <section id="evaluationPanel" class="panel evaluation-panel is-hidden">
+          <div class="panel-header">
+            <h2>Evaluation</h2>
+            <p id="evaluationSummary">No transcription scored yet.</p>
+          </div>
+
+          <div class="evaluation-metrics">
+            <article class="metric-card">
+              <span>Score</span>
+              <strong id="scoreText">-</strong>
+            </article>
+
+            <article class="metric-card">
+              <span>Accuracy</span>
+              <strong id="accuracyText">-</strong>
+            </article>
+
+            <article class="metric-card">
+              <span>Error count</span>
+              <strong id="errorCountText">-</strong>
+            </article>
+
+            <article class="metric-card">
+              <span>WPM estimate</span>
+              <strong id="wpmEstimateText">-</strong>
+            </article>
+          </div>
+
+          <div class="evaluation-block">
+            <h3>Actual characters</h3>
+            <div id="actualEvaluationText" class="evaluation-text" aria-live="polite"></div>
+          </div>
+
+          <div class="evaluation-block">
+            <h3>Your input</h3>
+            <pre id="typedEvaluationText" class="typed-evaluation-text">-</pre>
+          </div>
+
+          <div class="evaluation-block extra-errors">
+            <h3>Extra typed characters</h3>
+            <pre id="extraCharactersText" class="typed-evaluation-text">-</pre>
+          </div>
+
+          <div class="evaluation-actions">
+            <button id="repeatWrongButton" class="button" type="button" disabled>Repeat wrong characters</button>
+          </div>
+        </section>
+
+        <section class="panel history-panel">
+          <div class="panel-header">
+            <h2 id="historyHeading">History (0)</h2>
+            <p>Saved in local storage for this browser only.</p>
+          </div>
+
+          <div class="history-actions">
+            <button id="exportJsonButton" class="button" type="button" disabled>Export JSON</button>
+            <button id="exportCsvButton" class="button" type="button" disabled>Export CSV</button>
+            <button id="clearHistoryButton" class="button button-danger" type="button" disabled>Clear history</button>
+          </div>
+
+          <div id="historyList" class="history-list" aria-live="polite">
+            <p class="empty-history">No sessions saved yet.</p>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
